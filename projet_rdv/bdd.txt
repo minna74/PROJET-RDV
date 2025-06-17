@@ -1,0 +1,120 @@
+-- Création de la base de données
+CREATE DATABASE IF NOT EXISTS gestion_rdv_medical;
+USE gestion_rdv_medical;
+
+-- Table administrateur
+CREATE TABLE administrateur (
+    ID_admin INT AUTO_INCREMENT PRIMARY KEY,
+    Nom_admin VARCHAR(50) NOT NULL,
+    Prenom_admin VARCHAR(50) NOT NULL,
+    Email_admin VARCHAR(100) UNIQUE NOT NULL,
+    Numtel_admin VARCHAR(20),
+    Mot_de_passep VARCHAR(255) NOT NULL
+);
+
+-- Table medecin
+CREATE TABLE medecin (
+    ID_medecin INT AUTO_INCREMENT PRIMARY KEY,
+    Nom_med VARCHAR(50) NOT NULL,
+    Prenom_med VARCHAR(50) NOT NULL,
+    Specialite VARCHAR(100) NOT NULL,
+    email_med VARCHAR(100) UNIQUE NOT NULL,
+    Numtel_med VARCHAR(20),
+    Mot_de_passem VARCHAR(255) NOT NULL,
+    Tarif DECIMAL(10,2),
+    Horaires_disponible TEXT
+);
+
+-- Table patient
+CREATE TABLE patient (
+    ID_patient INT AUTO_INCREMENT PRIMARY KEY,
+    Nom_patient VARCHAR(50) NOT NULL,
+    Prenom_patient VARCHAR(50) NOT NULL,
+    Date_naiss DATE,
+    email_patient VARCHAR(100) UNIQUE NOT NULL,
+    Numtel VARCHAR(20),
+    Mot_de_passep VARCHAR(255) NOT NULL
+);
+
+-- Table dossier
+CREATE TABLE dossier (
+    ID_dossier INT AUTO_INCREMENT PRIMARY KEY,
+    ID_patient INT NOT NULL,
+    Historique_rdv TEXT,
+    Ordonnances TEXT,
+    Observations TEXT,
+    FOREIGN KEY (ID_patient) REFERENCES patient(ID_patient)
+);
+
+-- Table rendez_vous
+CREATE TABLE rendez_vous (
+    ID_rendez_vous INT AUTO_INCREMENT PRIMARY KEY,
+    Date_RDV DATE NOT NULL,
+    Heure TIME NOT NULL,
+    Statut ENUM('confirmé', 'annulé', 'en attente', 'terminé', 'urgent') DEFAULT 'en attente',
+    Specialite VARCHAR(100) NOT NULL,
+    ID_patient INT NOT NULL,
+    ID_medecin INT NOT NULL,
+    Motif TEXT,
+    FOREIGN KEY (ID_patient) REFERENCES patient(ID_patient),
+    FOREIGN KEY (ID_medecin) REFERENCES medecin(ID_medecin)
+);
+
+-- Table modifier (pour suivre les modifications)
+CREATE TABLE modifier (
+    ID_modification INT AUTO_INCREMENT PRIMARY KEY,
+    ID_admin INT,
+    ID_dossier INT,
+    ID_medecin INT,
+    Date_modification DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Description_modification TEXT,
+    FOREIGN KEY (ID_admin) REFERENCES administrateur(ID_admin),
+    FOREIGN KEY (ID_dossier) REFERENCES dossier(ID_dossier),
+    FOREIGN KEY (ID_medecin) REFERENCES medecin(ID_medecin)
+);
+
+-- Table changer_l_etat (pour gérer les changements d'état des RDV)
+CREATE TABLE changer_l_etat (
+    ID_changement INT AUTO_INCREMENT PRIMARY KEY,
+    ID_rendez_vous INT NOT NULL,
+    ID_admin INT,
+    Nouvel_etat ENUM('confirmé', 'annulé', 'en attente', 'terminé', 'urgent') NOT NULL,
+    Date_changement DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Raison TEXT,
+    FOREIGN KEY (ID_rendez_vous) REFERENCES rendez_vous(ID_rendez_vous),
+    FOREIGN KEY (ID_admin) REFERENCES administrateur(ID_admin)
+);
+
+-- Table parcourir (pour l'accès aux dossiers)
+CREATE TABLE parcourir (
+    ID_parcours INT AUTO_INCREMENT PRIMARY KEY,
+    ID_medecin INT NOT NULL,
+    ID_dossier INT NOT NULL,
+    ID_admin INT,
+    Date_acces DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ID_medecin) REFERENCES medecin(ID_medecin),
+    FOREIGN KEY (ID_dossier) REFERENCES dossier(ID_dossier),
+    FOREIGN KEY (ID_admin) REFERENCES administrateur(ID_admin)
+);
+
+-- Insertion de données de test
+INSERT INTO medecin (Nom_med, Prenom_med, Specialite, email_med, Numtel_med, Mot_de_passem, Tarif, Horaires_disponible) 
+VALUES 
+('Dupont', 'Jean', 'Cardiologie', 'j.dupont@cabinet.com', '0612345678', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 70.00, 'Lundi: 8h-12h, 14h-18h; Mardi: 8h-12h; Mercredi: 9h-17h'),
+('Martin', 'Sophie', 'Pédiatrie', 's.martin@cabinet.com', '0698765432', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 60.00, 'Lundi: 9h-12h; Mardi: 8h-18h; Jeudi: 10h-17h');
+
+INSERT INTO patient (Nom_patient, Prenom_patient, Date_naiss, email_patient, Numtel, Mot_de_passep) 
+VALUES 
+('Durand', 'Pierre', '1980-05-15', 'p.durand@mail.com', '0712345678', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'),
+('Leclerc', 'Marie', '1992-11-22', 'm.leclerc@mail.com', '0798765432', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
+
+INSERT INTO dossier (ID_patient, Historique_rdv, Ordonnances, Observations) 
+VALUES 
+(1, 'Consultation cardiologie 2023-05-10', 'Médicament X 1 comprimé par jour', 'A surveiller tension artérielle'),
+(2, 'Consultation pédiatrie 2023-06-15', 'Vitamine D 800UI/jour', 'Croissance normale');
+
+INSERT INTO rendez_vous (Date_RDV, Heure, Statut, Specialite, ID_patient, ID_medecin, Motif) 
+VALUES 
+('2023-07-10', '09:00:00', 'confirmé', 'Cardiologie', 1, 1, 'Consultation de suivi'),
+('2023-07-12', '11:30:00', 'en attente', 'Pédiatrie', 2, 2, 'Vaccination'),
+('2023-07-15', '14:00:00', 'urgent', 'Cardiologie', 1, 1, 'Douleurs thoraciques');

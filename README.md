@@ -5,7 +5,7 @@ realisé par:
     Asseid Siddick Adam
     Bouincha Salma
     Joubir Fatima
-    Seydou Souleyman Hawa
+    Saidou Souleymane Hawa
 
 #                           encadré par:
 #                                       Mr Ouadoud Mouhamed  

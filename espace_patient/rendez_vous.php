@@ -8,33 +8,33 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$userId = $_SESSION['user_id'];
-$userName = $_SESSION['user_nom'] ?? 'Utilisateur'; // Pour l'affichage dans la navbar
-$userPrenom = $_SESSION['user_prenom'] ?? ''; // Pour l'affichage dans la navbar
+// Initialiser les variables avec des valeurs par défaut
+$userName = $_SESSION['user_nom'] ?? 'Utilisateur';
+$userPrenom = $_SESSION['user_prenom'] ?? '';
 
 $appointments = [];
 try {
-    // Récupérer les rendez-vous de l'utilisateur avec les informations du médecin
+    // Correction: Utilisation des bonnes tables et colonnes
     $stmt = $pdo->prepare("
         SELECT
-            a.appointment_date,
-            a.appointment_time,
-            d.nom AS doctor_nom,
-            a.status
+            r.Date_RDV AS appointment_date,
+            r.Heure AS appointment_time,
+            m.Nom_med AS doctor_nom,
+            r.Statut AS status
         FROM
-            appointments a
+            rendez_vous r
         JOIN
-            doctors d ON a.doctor_id = d.id
+            medecin m ON r.ID_medecin = m.ID_medecin
         WHERE
-            a.user_id = ?
+            r.ID_patient = ?
         ORDER BY
-            a.appointment_date DESC, a.appointment_time DESC
+            r.Date_RDV DESC, r.Heure DESC
     ");
-    $stmt->execute([$userId]);
+    $stmt->execute([$_SESSION['user_id']]);
     $appointments = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log("Erreur lors de la récupération des rendez-vous: " . $e->getMessage());
-    $appointments = []; // Assurez-vous que c'est un tableau vide en cas d'erreur
+    $appointments = [];
 }
 ?>
 <!DOCTYPE html>

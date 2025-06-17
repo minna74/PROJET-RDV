@@ -12,18 +12,24 @@ $userId = $_SESSION['user_id'];
 $userName = $_SESSION['user_nom'] ?? 'Utilisateur';
 $userPrenom = $_SESSION['user_prenom'] ?? '';
 
-$doctors = [];
-$successMessage = '';
-$errorMessage = '';
-
 // Récupérer les médecins depuis la base de données
 try {
-    $stmt = $pdo->query("SELECT id, nom, specialite FROM doctors ORDER BY nom");
+    // Correction: Utilisation de Specialite avec alias
+    $stmt = $pdo->query("SELECT 
+        ID_medecin AS id, 
+        Nom_med AS nom, 
+        Specialite AS specialite 
+        FROM medecin 
+        ORDER BY Nom_med");
+    
     $doctors = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     error_log("Erreur lors de la récupération des médecins: " . $e->getMessage());
     $errorMessage = "Impossible de charger la liste des médecins.";
 }
+
+$successMessage = '';
+$errorMessage = '';
 
 // Gérer la soumission du formulaire de rendez-vous
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_rdv'])) {
@@ -36,21 +42,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_rdv'])) {
         $errorMessage = "Veuillez choisir un médecin, une date et un créneau horaire.";
     } else {
         try {
-            // Vérifier si le créneau est encore disponible (simple vérification, pas de gestion de conflits complexes)
-            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status = 'à venir'");
-            $checkStmt->execute([$selectedDoctorId, $selectedDate, $selectedTime]);
+            // Formater l'heure correctement pour la base de données
+            $formattedTime = $selectedTime . ':00';
+            
+            // Correction: Utilisation des bons noms de colonnes et de table
+            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM rendez_vous 
+                                        WHERE ID_medecin = ? 
+                                        AND Date_RDV = ? 
+                                        AND Heure = ?");
+            $checkStmt->execute([$selectedDoctorId, $selectedDate, $formattedTime]);
+            
             if ($checkStmt->fetchColumn() > 0) {
                 $errorMessage = "Ce créneau est déjà pris. Veuillez en choisir un autre.";
             } else {
-                // Insérer le nouveau rendez-vous
+                // Récupérer la spécialité du médecin
+                $stmtSpecialite = $pdo->prepare("SELECT Specialite FROM medecin WHERE ID_medecin = ?");
+                $stmtSpecialite->execute([$selectedDoctorId]);
+                $specialite = $stmtSpecialite->fetchColumn();
+                
+                // Correction: Insertion avec les bons noms de colonnes et valeurs
                 $insertStmt = $pdo->prepare("
-                    INSERT INTO appointments (user_id, doctor_id, appointment_date, appointment_time, reason, status)
-                    VALUES (?, ?, ?, ?, ?, 'à venir')
+                    INSERT INTO rendez_vous (
+                        Date_RDV, 
+                        Heure, 
+                        Statut, 
+                        Specialite, 
+                        ID_patient, 
+                        ID_medecin, 
+                        Motif
+                    ) VALUES (?, ?, 'en attente', ?, ?, ?, ?)
                 ");
-                $insertStmt->execute([$userId, $selectedDoctorId, $selectedDate, $selectedTime, $reason]);
+                $insertStmt->execute([
+                    $selectedDate,
+                    $formattedTime,
+                    $specialite,
+                    $userId,
+                    $selectedDoctorId,
+                    $reason
+                ]);
 
                 $successMessage = "Votre rendez-vous a été pris avec succès !";
-                // Optionnel: Réinitialiser les champs du formulaire après succès
             }
         } catch (PDOException $e) {
             error_log("Erreur lors de la prise de rendez-vous: " . $e->getMessage());

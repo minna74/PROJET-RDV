@@ -1,5 +1,90 @@
- <?php
+<?php
+session_start();
+
 require_once 'config.php';
+
+// Récupérer l'ID du médecin connecté (à adapter selon votre système d'authentification)
+$medecinId = $_SESSION['medecin_id'] ?? 1;
+
+
+try {
+    $stmt_today = $pdo->prepare("
+        SELECT r.Heure, p.Nom_patient, p.Prenom_patient, r.Motif, r.Statut 
+        FROM rendez_vous r
+        JOIN patient p ON r.ID_patient = p.ID_patient
+        WHERE r.ID_medecin = :medecin_id
+        AND r.Date_RDV = CURDATE()
+        ORDER BY r.Heure
+    ");
+    $stmt_today->bindParam(':medecin_id', $medecinId, PDO::PARAM_INT);
+    $stmt_today->execute();
+    $today_appointments = $stmt_today->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Erreur de récupération des RDV du jour: " . $e->getMessage());
+    $today_appointments = [];
+}
+
+// 2. Calculer les statistiques
+try {
+    // a) Taux d'occupation (rdvs planifiés / créneaux ouverts)
+    $stmt_occupation = $pdo->prepare("
+        SELECT 
+            COUNT(*) AS rdv_count,
+            (SELECT COUNT(*) FROM creneaux_disponibles WHERE medecin_id = :medecin_id) AS total_creneaux
+        FROM rendez_vous
+        WHERE ID_medecin = :medecin_id
+        AND WEEK(Date_RDV) = WEEK(NOW())
+        AND Statut NOT IN ('annulé')
+    ");
+    $stmt_occupation->bindParam(':medecin_id', $medecinId, PDO::PARAM_INT);
+    $stmt_occupation->execute();
+    $occupation_data = $stmt_occupation->fetch(PDO::FETCH_ASSOC);
+    
+    $taux_occupation = ($occupation_data['total_creneaux'] > 0) 
+        ? round(($occupation_data['rdv_count'] / $occupation_data['total_creneaux']) * 100, 0)
+        : 0;
+
+    // b) Pourcentage de rendez-vous annulés
+    $stmt_cancellations = $pdo->prepare("
+        SELECT 
+            (SELECT COUNT(*) 
+             FROM rendez_vous 
+             WHERE ID_medecin = :medecin_id
+             AND WEEK(Date_RDV) = WEEK(NOW())
+             AND Statut = 'annulé') AS annules,
+             
+            COUNT(*) AS total
+        FROM rendez_vous
+        WHERE ID_medecin = :medecin_id
+        AND WEEK(Date_RDV) = WEEK(NOW())
+    ");
+    $stmt_cancellations->bindParam(':medecin_id', $medecinId, PDO::PARAM_INT);
+    $stmt_cancellations->execute();
+    $cancellation_data = $stmt_cancellations->fetch(PDO::FETCH_ASSOC);
+    
+    $taux_annulation = ($cancellation_data['total'] > 0) 
+        ? round(($cancellation_data['annules'] / $cancellation_data['total']) * 100, 0)
+        : 0;
+
+    // c) Durée moyenne des rendez-vous
+    $stmt_duration = $pdo->prepare("
+        SELECT AVG(duree) AS moyenne 
+        FROM rendez_vous
+        WHERE ID_medecin = :medecin_id
+        AND Statut = 'terminé'
+    ");
+    $stmt_duration->bindParam(':medecin_id', $medecinId, PDO::PARAM_INT);
+    $stmt_duration->execute();
+    $duration_data = $stmt_duration->fetch(PDO::FETCH_ASSOC);
+    
+    $duree_moyenne = $duration_data['moyenne'] ? round($duration_data['moyenne']) : 0;
+    
+} catch (PDOException $e) {
+    error_log("Erreur de calcul des statistiques: " . $e->getMessage());
+    $taux_occupation = 0;
+    $taux_annulation = 0;
+    $duree_moyenne = 0;
+}
 ?>
 
  
@@ -186,42 +271,83 @@ try {
 
                     <section class="mb-5" id="today-appointments">
                         <h3 class="mb-3">Rendez-vous aujourd'hui</h3>
-                        <div class="row" id="today-list">
-                            <!-- Contenu dynamique -->
-                        </div>
+                       <div class="row" id="today-list">
+    <?php if (empty($today_appointments)): ?>
+        <div class="col-12">
+            <p>Aucun rendez-vous aujourd'hui</p>
+        </div>
+    <?php else: ?>
+        <?php foreach ($today_appointments as $appointment): 
+            $heure = substr($appointment['Heure'], 0, 5);
+            $nom = $appointment['Nom_patient'] . ' ' . $appointment['Prenom_patient'];
+            $statut = $appointment['Statut'];
+            $motif = $appointment['Motif'];
+            
+            // Choisir la classe du badge en fonction du statut
+            $badge_class = '';
+            switch($statut) {
+                case 'confirmé': $badge_class = 'bg-success'; break;
+                case 'en attente': $badge_class = 'bg-warning text-dark'; break;
+                case 'annulé': $badge_class = 'bg-danger'; break;
+                case 'terminé': $badge_class = 'bg-secondary'; break;
+                case 'urgent': $badge_class = 'bg-primary'; break;
+                default: $badge_class = 'bg-light text-dark';
+            }
+        ?>
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title"><?= $heure ?> - <?= htmlspecialchars($nom) ?></h5>
+                        <span class="badge <?= $badge_class ?>"><?= htmlspecialchars($statut) ?></span>
+                    </div>
+                    <p class="card-text"><?= htmlspecialchars($motif) ?></p>
+                </div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
                     </section>
 
-                    <section id="stats-section">
-                        <h3 class="mb-3">Statistiques</h3>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Taux d'occupation</h5>
-                                        <div class="progress">
-                                            <div class="progress-bar bg-success" role="progressbar" style="width: 75%">75%</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">RDV annulés</h5>
-                                        <p class="display-6">12%</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Durée moyenne</h5>
-                                        <p class="display-6">22 min</p>
-                                    </div>
-                                </div>
-                            </div>
+                   <section id="stats-section">
+    <h3 class="mb-3">Statistiques</h3>
+    <div class="row">
+        <!-- Taux d'occupation -->
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Taux d'occupation</h5>
+                    <div class="progress">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: <?= $taux_occupation ?>%">
+                            <?= $taux_occupation ?>%
                         </div>
-                    </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- RDV annulés -->
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">RDV annulés</h5>
+                    <p class="display-6"><?= $taux_annulation ?>%</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Durée moyenne -->
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Durée moyenne</h5>
+                    <p class="display-6"><?= $duree_moyenne ?> min</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
                 </div>
 
                 <!-- Sections des boutons cliquables (initialement cachées) -->

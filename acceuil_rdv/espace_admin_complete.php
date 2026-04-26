@@ -1,13 +1,6 @@
 <?php
 session_start();
-$host = "localhost";
-$user = "root";
-$password = "";
-$dbname = "gestion_rdv_medical";
-$conn = new mysqli($host, $user, $password, $dbname);
-if ($conn->connect_error) {
-    die("Connexion échouée : " . $conn->connect_error);
-}
+require_once __DIR__ . '/../db_connect.php';
 
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     session_destroy();
@@ -18,11 +11,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['email'], $_POST['password'])) {
     $email = $_POST['email'];
     $password = $_POST['password'];
-    $stmt = $conn->prepare("SELECT * FROM administrateur WHERE Email_admin = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $admin = $result->fetch_assoc();
+    $stmt = $pdo->prepare("SELECT * FROM administrateur WHERE Email_admin = ?");
+    $stmt->execute([$email]);
+    $admin = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($admin && password_verify($password, $admin['Mot_de_passep'])) {
         $_SESSION['admin'] = $admin['Prenom_admin'] . " " . $admin['Nom_admin'];
         $_SESSION['admin_id'] = $admin['ID_admin'];
@@ -48,7 +39,6 @@ function nav_bar() {
       </div>
     </nav>';
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -58,7 +48,7 @@ function nav_bar() {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<?php 
+<?php
 if ($page === 'login' && !isset($_SESSION['admin'])) {
     ?>
     <div class="container mt-5">
@@ -87,15 +77,15 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
         <h2 class="mb-4">Tableau de bord</h2>
         <div class="row">
             <?php
-            $nbPatients = $conn->query("SELECT COUNT(*) FROM patient")->fetch_row()[0];
-            $nbMedecins = $conn->query("SELECT COUNT(*) FROM medecin")->fetch_row()[0];
-            $nbRDVAttente = $conn->query("SELECT COUNT(*) FROM rendez_vous WHERE Statut = 'en attente'")->fetch_row()[0];
-            $nbModifs = $conn->query("SELECT COUNT(*) FROM modifier")->fetch_row()[0];
+            $nbPatients  = $pdo->query("SELECT COUNT(*) FROM patient")->fetchColumn();
+            $nbMedecins  = $pdo->query("SELECT COUNT(*) FROM medecin")->fetchColumn();
+            $nbRDVAttente = $pdo->query("SELECT COUNT(*) FROM rendez_vous WHERE Statut = 'en attente'")->fetchColumn();
+            $nbModifs    = $pdo->query("SELECT COUNT(*) FROM modifier")->fetchColumn();
             ?>
-            <div class="col-md-3"><div class="card text-bg-info mb-3"><div class="card-body"><h5 class="card-title">Patients</h5><p class="card-text fs-4"><?= $nbPatients ?></p></div></div></div>
-            <div class="col-md-3"><div class="card text-bg-primary mb-3"><div class="card-body"><h5 class="card-title">Médecins</h5><p class="card-text fs-4"><?= $nbMedecins ?></p></div></div></div>
-            <div class="col-md-3"><div class="card text-bg-warning mb-3"><div class="card-body"><h5 class="card-title">RDV en attente</h5><p class="card-text fs-4"><?= $nbRDVAttente ?></p></div></div></div>
-            <div class="col-md-3"><div class="card text-bg-danger mb-3"><div class="card-body"><h5 class="card-title">Modifs à valider</h5><p class="card-text fs-4"><?= $nbModifs ?></p></div></div></div>
+            <div class="col-md-3"><div class="card text-bg-info mb-3"><div class="card-body"><h5>Patients</h5><p class="fs-4"><?= $nbPatients ?></p></div></div></div>
+            <div class="col-md-3"><div class="card text-bg-primary mb-3"><div class="card-body"><h5>Médecins</h5><p class="fs-4"><?= $nbMedecins ?></p></div></div></div>
+            <div class="col-md-3"><div class="card text-bg-warning mb-3"><div class="card-body"><h5>RDV en attente</h5><p class="fs-4"><?= $nbRDVAttente ?></p></div></div></div>
+            <div class="col-md-3"><div class="card text-bg-danger mb-3"><div class="card-body"><h5>Modifs à valider</h5><p class="fs-4"><?= $nbModifs ?></p></div></div></div>
         </div>
         <ul class="list-group mt-4">
             <li class="list-group-item"><a href="?page=medecins">✅ Gérer les médecins</a></li>
@@ -107,15 +97,22 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
     <?php
 } else if ($page === 'medecins') {
     nav_bar();
+    if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
+        $id = intval($_GET['id']);
+        $pdo->prepare("DELETE FROM medecin WHERE ID_medecin = ?")->execute([$id]);
+        header("Location: ?page=medecins");
+        exit();
+    }
     ?>
     <div class="container mt-5">
         <h2>Gestion des médecins</h2>
         <?php
-        $result = $conn->query("SELECT * FROM medecin ORDER BY Nom_med");
-        if ($result->num_rows > 0) {
+        $stmt = $pdo->query("SELECT * FROM medecin ORDER BY Nom_med");
+        $medecins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($medecins) > 0) {
             echo '<table class="table table-striped">';
             echo '<thead><tr><th>ID</th><th>Nom</th><th>Prénom</th><th>Spécialité</th><th>Email</th><th>Téléphone</th><th>Tarif</th><th>Horaires</th><th>Actions</th></tr></thead><tbody>';
-            while ($med = $result->fetch_assoc()) {
+            foreach ($medecins as $med) {
                 echo '<tr>';
                 echo '<td>' . htmlspecialchars($med['ID_medecin']) . '</td>';
                 echo '<td>' . htmlspecialchars($med['Nom_med']) . '</td>';
@@ -125,41 +122,47 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
                 echo '<td>' . htmlspecialchars($med['Numtel_med']) . '</td>';
                 echo '<td>' . htmlspecialchars($med['Tarif']) . ' €</td>';
                 echo '<td>' . nl2br(htmlspecialchars($med['Horaires_disponible'])) . '</td>';
-                echo '<td>';
-                echo '<a href="?page=medecins&action=delete&id=' . $med['ID_medecin'] . '" class="btn btn-sm btn-danger me-1" onclick="return confirm(\'Supprimer ce médecin ?\')">Supprimer</a>';
-                echo '</td>';
+                echo '<td><a href="?page=medecins&action=delete&id=' . $med['ID_medecin'] . '" class="btn btn-sm btn-danger" onclick="return confirm(\'Supprimer ?\')">Supprimer</a></td>';
                 echo '</tr>';
             }
             echo '</tbody></table>';
         } else {
             echo "<p>Aucun médecin trouvé.</p>";
         }
-        if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
-            $id = intval($_GET['id']);
-            $conn->query("DELETE FROM medecin WHERE ID_medecin = $id");
-            header("Location: ?page=medecins");
-            exit();
-        }
         ?>
     </div>
     <?php
 } else if ($page === 'rdv') {
     nav_bar();
+    if (isset($_GET['action'], $_GET['id'])) {
+        $id = intval($_GET['id']);
+        if ($_GET['action'] === 'confirm') {
+            $stmt = $pdo->prepare("UPDATE rendez_vous SET Statut = 'confirmé' WHERE ID_rendez_vous = ?");
+            $stmt->execute([$id]);
+        } else if ($_GET['action'] === 'cancel') {
+            $stmt = $pdo->prepare("UPDATE rendez_vous SET Statut = 'annulé' WHERE ID_rendez_vous = ?");
+            $stmt->execute([$id]);
+        }
+        header("Location: ?page=rdv");
+        exit();
+    }
     ?>
     <div class="container mt-5">
         <h2>Gestion des rendez-vous</h2>
         <?php
-        $result = $conn->query(
-            "SELECT r.ID_rendez_vous, r.Date_RDV, r.Heure, r.Statut, r.Specialite, p.Nom_patient, p.Prenom_patient, m.Nom_med, m.Prenom_med, r.Motif 
+        $stmt = $pdo->query(
+            "SELECT r.ID_rendez_vous, r.Date_RDV, r.Heure, r.Statut, r.Specialite, r.Motif,
+                    p.Nom_patient, p.Prenom_patient, m.Nom_med, m.Prenom_med
              FROM rendez_vous r
              JOIN patient p ON r.ID_patient = p.ID_patient
              JOIN medecin m ON r.ID_medecin = m.ID_medecin
              ORDER BY r.Date_RDV, r.Heure"
         );
-        if ($result->num_rows > 0) {
+        $rdvs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($rdvs) > 0) {
             echo '<table class="table table-bordered">';
             echo '<thead><tr><th>Date</th><th>Heure</th><th>Statut</th><th>Spécialité</th><th>Patient</th><th>Médecin</th><th>Motif</th><th>Actions</th></tr></thead><tbody>';
-            while ($rdv = $result->fetch_assoc()) {
+            foreach ($rdvs as $rdv) {
                 echo '<tr>';
                 echo '<td>' . htmlspecialchars($rdv['Date_RDV']) . '</td>';
                 echo '<td>' . htmlspecialchars(substr($rdv['Heure'], 0, 5)) . '</td>';
@@ -169,34 +172,14 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
                 echo '<td>' . htmlspecialchars($rdv['Nom_med'] . ' ' . $rdv['Prenom_med']) . '</td>';
                 echo '<td>' . htmlspecialchars($rdv['Motif']) . '</td>';
                 echo '<td>';
-                echo '<a href="?page=rdv&action=confirm&id=' . $rdv['ID_rendez_vous'] . '" class="btn btn-success btn-sm me-1" onclick="return confirm(\'Confirmer ce rendez-vous ?\')">Confirmer</a>';
-                echo '<a href="?page=rdv&action=cancel&id=' . $rdv['ID_rendez_vous'] . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Annuler ce rendez-vous ?\')">Annuler</a>';
+                echo '<a href="?page=rdv&action=confirm&id=' . $rdv['ID_rendez_vous'] . '" class="btn btn-success btn-sm me-1" onclick="return confirm(\'Confirmer ?\')">Confirmer</a>';
+                echo '<a href="?page=rdv&action=cancel&id=' . $rdv['ID_rendez_vous'] . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Annuler ?\')">Annuler</a>';
                 echo '</td>';
                 echo '</tr>';
             }
             echo '</tbody></table>';
         } else {
             echo "<p>Aucun rendez-vous trouvé.</p>";
-        }
-
-        // Actions
-        if (isset($_GET['action'], $_GET['id'])) {
-            $id = intval($_GET['id']);
-            if ($_GET['action'] === 'confirm') {
-                $stmt = $conn->prepare("UPDATE rendez_vous SET Statut = 'confirmé' WHERE ID_rendez_vous = ?");
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $stmt->close();
-                header("Location: ?page=rdv");
-                exit();
-            } else if ($_GET['action'] === 'cancel') {
-                $stmt = $conn->prepare("UPDATE rendez_vous SET Statut = 'annulé' WHERE ID_rendez_vous = ?");
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $stmt->close();
-                header("Location: ?page=rdv");
-                exit();
-            }
         }
         ?>
     </div>
@@ -207,9 +190,9 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
     <div class="container mt-5">
         <h2>Planning des médecins</h2>
         <?php
-        $result = $conn->query("SELECT Nom_med, Prenom_med, Specialite, Horaires_disponible FROM medecin ORDER BY Nom_med");
-        if ($result->num_rows > 0) {
-            while ($med = $result->fetch_assoc()) {
+        $medecins = $pdo->query("SELECT Nom_med, Prenom_med, Specialite, Horaires_disponible FROM medecin ORDER BY Nom_med")->fetchAll(PDO::FETCH_ASSOC);
+        if (count($medecins) > 0) {
+            foreach ($medecins as $med) {
                 echo '<div class="card mb-3">';
                 echo '<div class="card-header"><strong>' . htmlspecialchars($med['Nom_med'] . ' ' . $med['Prenom_med']) . '</strong> - ' . htmlspecialchars($med['Specialite']) . '</div>';
                 echo '<div class="card-body"><pre>' . htmlspecialchars($med['Horaires_disponible']) . '</pre></div>';
@@ -223,21 +206,28 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
     <?php
 } else if ($page === 'modifications') {
     nav_bar();
+    if (isset($_GET['action'], $_GET['id'])) {
+        $id = intval($_GET['id']);
+        $pdo->prepare("DELETE FROM modifier WHERE ID_modification = ?")->execute([$id]);
+        header("Location: ?page=modifications");
+        exit();
+    }
     ?>
     <div class="container mt-5">
         <h2>Modifications à valider</h2>
         <?php
-        $result = $conn->query(
-            "SELECT mo.ID_modification, a.Prenom_admin, a.Nom_admin, d.ID_dossier, mo.Date_modification, mo.Description_modification 
+        $stmt = $pdo->query(
+            "SELECT mo.ID_modification, a.Prenom_admin, a.Nom_admin, d.ID_dossier, mo.Date_modification, mo.Description_modification
              FROM modifier mo
              LEFT JOIN administrateur a ON mo.ID_admin = a.ID_admin
              LEFT JOIN dossier d ON mo.ID_dossier = d.ID_dossier
              ORDER BY mo.Date_modification DESC"
         );
-        if ($result->num_rows > 0) {
+        $mods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($mods) > 0) {
             echo '<table class="table table-striped">';
-            echo '<thead><tr><th>ID Modification</th><th>Admin</th><th>ID Dossier</th><th>Date</th><th>Description</th><th>Actions</th></tr></thead><tbody>';
-            while ($mod = $result->fetch_assoc()) {
+            echo '<thead><tr><th>ID</th><th>Admin</th><th>ID Dossier</th><th>Date</th><th>Description</th><th>Actions</th></tr></thead><tbody>';
+            foreach ($mods as $mod) {
                 echo '<tr>';
                 echo '<td>' . htmlspecialchars($mod['ID_modification']) . '</td>';
                 echo '<td>' . htmlspecialchars($mod['Prenom_admin'] . ' ' . $mod['Nom_admin']) . '</td>';
@@ -245,8 +235,8 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
                 echo '<td>' . htmlspecialchars($mod['Date_modification']) . '</td>';
                 echo '<td>' . htmlspecialchars($mod['Description_modification']) . '</td>';
                 echo '<td>';
-                echo '<a href="?page=modifications&action=validate&id=' . $mod['ID_modification'] . '" class="btn btn-success btn-sm me-1" onclick="return confirm(\'Valider cette modification ?\')">Valider</a>';
-                echo '<a href="?page=modifications&action=delete&id=' . $mod['ID_modification'] . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Supprimer cette modification ?\')">Supprimer</a>';
+                echo '<a href="?page=modifications&action=validate&id=' . $mod['ID_modification'] . '" class="btn btn-success btn-sm me-1" onclick="return confirm(\'Valider ?\')">Valider</a>';
+                echo '<a href="?page=modifications&action=delete&id=' . $mod['ID_modification'] . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Supprimer ?\')">Supprimer</a>';
                 echo '</td>';
                 echo '</tr>';
             }
@@ -254,31 +244,14 @@ if ($page === 'login' && !isset($_SESSION['admin'])) {
         } else {
             echo "<p>Aucune modification à valider.</p>";
         }
-
-        // Actions
-        if (isset($_GET['action'], $_GET['id'])) {
-            $id = intval($_GET['id']);
-            if ($_GET['action'] === 'validate') {
-                // Par exemple, supprimer la modification validée (à adapter selon logique métier)
-                $conn->query("DELETE FROM modifier WHERE ID_modification = $id");
-                header("Location: ?page=modifications");
-                exit();
-            } else if ($_GET['action'] === 'delete') {
-                $conn->query("DELETE FROM modifier WHERE ID_modification = $id");
-                header("Location: ?page=modifications");
-                exit();
-            }
-        }
         ?>
     </div>
     <?php
 } else {
-    // Page non trouvée ou autre redirection
     header("Location: ?page=dashboard");
     exit();
 }
 ?>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

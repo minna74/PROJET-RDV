@@ -1,8 +1,6 @@
 <?php
+require_once __DIR__ . '/../db_connect.php';
 session_start();
-
-$pdo = new PDO("mysql:host=localhost;dbname=gestion_rdv_medical", "root", "");
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $email = $_POST['email'] ?? '';
 $mot_de_passe = $_POST['mot_de_passe'] ?? '';

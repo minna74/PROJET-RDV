@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-require_once 'config.php';
+require_once __DIR__ . '/../db_connect.php'; // chemin relatif vers la racine
 
 // Récupérer l'ID du médecin connecté (à adapter selon votre système d'authentification)
 $medecinId = $_SESSION['medecin_id'] ?? 1;

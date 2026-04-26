@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../db_connect.php';
+
 $message = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -10,8 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $mdp = password_hash($_POST['mot_de_passe'], PASSWORD_DEFAULT);
 
     try {
-        $pdo = new PDO("mysql:host=localhost;dbname=gestion_rdv_medical", "root", "");
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
 
         $check = $pdo->prepare("SELECT * FROM patient WHERE email_patient = ?");
         $check->execute([$email]);

@@ -1,12 +1,9 @@
 <?php
 session_start();
 
-try {
-    $pdo = new PDO("mysql:host=localhost;dbname=gestion_rdv_medical", "root", "");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Erreur de connexion : " . $e->getMessage());
-}
+
+require_once __DIR__ . '/../db_connect.php'; // chemin relatif vers la racine
+
 
 $erreur = "";
 

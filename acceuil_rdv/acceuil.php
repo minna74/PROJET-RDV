@@ -236,7 +236,7 @@ session_start();
             <a class="btn btn-main" href="../espace_patient/inscription.php"><i class="bi bi-person"></i> Connexion</a>
           </li>
           <li class="nav-item ms-2">
-            <a class="btn btn-medecin" href="../projet_rdv/inscription_medecin.php"><i class="bi bi-briefcase"></i> Vous êtes médecin ?</a>
+            <a class="btn btn-medecin" href="../espace_medecin/inscription_medecin.php"><i class="bi bi-briefcase"></i> Vous êtes médecin ?</a>
           </li>
         </ul>
       </div>

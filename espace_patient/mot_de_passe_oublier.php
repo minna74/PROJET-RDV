@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'db_connect.php'; // Inclure le fichier de connexion à la base de données
+require_once '../db_connect.php'; // Inclure le fichier de connexion à la base de données
 
 $message = '';
 $messageType = ''; // 'success' or 'error'

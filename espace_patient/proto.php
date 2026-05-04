@@ -276,7 +276,7 @@ try {
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg">
       <div class="container">
-        <a class="navbar-brand fw-bold" href="../acceuil_rdv/accueilprin.php">Shafadmedcare</a>
+        <a class="navbar-brand fw-bold" href="../acceuil_rdv/acceuil.php">Shafadmedcare</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
           <span class="navbar-toggler-icon"></span>
         </button>

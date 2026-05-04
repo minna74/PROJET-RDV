@@ -104,7 +104,7 @@ try {
         <!-- Sidebar -->
         <div class="sidebar bg-primary text-white">
             <div class="sidebar-header text-center py-4">
-<a href="../acceuil_rdv/accueilprin.php">
+<a href="../acceuil_rdv/acceuil.php">
   <img src="assets/logo.jpg" alt="Logo Cabinet" class="logo img-fluid">
 </a>
                 <h4>Dr. [Nom]</h4>
